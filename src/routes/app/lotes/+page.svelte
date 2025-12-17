@@ -1,34 +1,36 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { supabase } from '$lib/supabaseClient';
+  import { onMount } from 'svelte'
+  import { supabase } from '$lib/supabaseClient'
 
-  let produtos: any[] = [];
-  let lotes: any[] = [];
-  let lotesFiltrados: any[] = [];
+  let produtos: any[] = []
+  let lotes: any[] = []
+  let lotesFiltrados: any[] = []
 
-  let produtoId = '';
-  let quantidade: number | '' = '';
-  let validade = '';
+  let produtoId = ''
+  let quantidade: number | '' = ''
+  let validade = ''
 
-  let loading = true;
-  let saving = false;
-  let error = '';
-  let success = '';
+  let loading = true
+  let saving = false
+  let error = ''
+  let success = ''
 
-  let filtro: 'todos' | 'a-expirar' | 'expirados' = 'todos';
+  let filtro: 'todos' | 'a-expirar' | 'expirados' = 'todos'
 
   async function carregarProdutos() {
     const { data, error: err } = await supabase
       .from('produtos')
       .select('id, nome')
       .eq('ativo', true)
-      .order('nome');
+      .order('nome')
 
-    if (err) error = err.message;
-    else produtos = data ?? [];
+    if (err) error = err.message
+    else produtos = data ?? []
   }
 
   async function carregarLotes() {
+    loading = true
+
     const { data, error: err } = await supabase
       .from('lotes')
       .select(`
@@ -40,166 +42,277 @@
           nome
         )
       `)
-      .order('validade', { ascending: true });
+      .order('validade', { ascending: true })
 
-    if (err) error = err.message;
-    else {
-      lotes = data ?? [];
-      aplicarFiltro();
+    if (err) {
+      error = err.message
+    } else {
+      lotes = data ?? []
+      aplicarFiltro()
     }
 
-    loading = false;
+    loading = false
   }
 
   async function criarLote() {
     if (!produtoId || !quantidade || !validade) {
-      error = 'Preenche todos os campos.';
-      return;
+      error = 'Preenche todos os campos.'
+      return
     }
 
-    saving = true;
-    error = '';
-    success = '';
+    saving = true
+    error = ''
+    success = ''
 
     const { error: err } = await supabase.from('lotes').insert({
       produto_id: produtoId,
       quantidade,
       validade
-    });
+    })
 
-    saving = false;
+    saving = false
 
     if (err) {
-      error = err.message;
-      return;
+      error = err.message
+      return
     }
 
-    produtoId = '';
-    quantidade = '';
-    validade = '';
-    success = 'Lote criado com sucesso.';
-    await carregarLotes();
+    produtoId = ''
+    quantidade = ''
+    validade = ''
+    success = 'Lote criado com sucesso.'
+    await carregarLotes()
   }
 
   function diasPara(validade: string) {
-    const hoje = new Date();
-    const v = new Date(validade);
-    return Math.ceil((v.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+    const hoje = new Date()
+    const v = new Date(validade)
+    return Math.ceil((v.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
   }
 
   function estadoValidade(validade: string) {
-    const d = diasPara(validade);
-    if (d < 0) return 'expirado';
-    if (d <= 30) return 'a-expirar';
-    return 'ok';
+    const d = diasPara(validade)
+    if (d < 0) return 'expirado'
+    if (d <= 30) return 'a-expirar'
+    return 'ok'
   }
 
   function aplicarFiltro() {
     if (filtro === 'todos') {
-      lotesFiltrados = lotes;
+      lotesFiltrados = lotes
     } else {
       lotesFiltrados = lotes.filter(
         (l) => estadoValidade(l.validade) === filtro
-      );
+      )
     }
   }
 
   function contar(estado: 'expirado' | 'a-expirar') {
-    return lotes.filter((l) => estadoValidade(l.validade) === estado).length;
+    return lotes.filter((l) => estadoValidade(l.validade) === estado).length
   }
 
   onMount(async () => {
-    await carregarProdutos();
-    await carregarLotes();
-  });
+    await carregarProdutos()
+    await carregarLotes()
+  })
 </script>
 
-<h1>Lotes</h1>
+<!-- CABEÇALHO -->
+<header class="page-header">
+  <h1>Lotes</h1>
+  <p class="subtitle">
+    Gestão de stock por validade
+  </p>
+</header>
 
-<section>
-  <h2>Novo Lote</h2>
+<!-- CRIAR LOTE -->
+<section class="card">
+  <h2>Novo lote</h2>
 
-  <select bind:value={produtoId} disabled={saving}>
-    <option value="">Seleciona um produto</option>
-    {#each produtos as produto}
-      <option value={produto.id}>{produto.nome}</option>
-    {/each}
-  </select>
+  <div class="form">
+    <select bind:value={produtoId} disabled={saving}>
+      <option value="">Seleciona um produto</option>
+      {#each produtos as produto}
+        <option value={produto.id}>{produto.nome}</option>
+      {/each}
+    </select>
 
-  <input
-    type="number"
-    placeholder="Quantidade"
-    bind:value={quantidade}
-    min="0"
-    disabled={saving}
-  />
+    <input
+      type="number"
+      placeholder="Quantidade"
+      bind:value={quantidade}
+      min="0"
+      disabled={saving}
+    />
 
-  <input type="date" bind:value={validade} disabled={saving} />
+    <input
+      type="date"
+      bind:value={validade}
+      disabled={saving}
+    />
 
-  <button type="button" on:click={criarLote} disabled={saving}>
-    {saving ? 'A guardar…' : 'Criar Lote'}
-  </button>
+    <button type="button" on:click={criarLote} disabled={saving}>
+      {saving ? 'A guardar…' : 'Criar lote'}
+    </button>
+  </div>
 </section>
 
+<!-- FEEDBACK -->
 {#if success}
-  <p style="color: green">{success}</p>
+  <p class="feedback success">{success}</p>
 {/if}
 
 {#if error}
-  <p style="color: red">{error}</p>
+  <p class="feedback error">{error}</p>
 {/if}
 
-<hr />
-
-<section>
-  <h2>Filtros</h2>
-
-  <button type="button" on:click={() => { filtro = 'todos'; aplicarFiltro(); }}>
+<!-- FILTROS -->
+<section class="filters">
+  <button
+    class:active={filtro === 'todos'}
+    on:click={() => { filtro = 'todos'; aplicarFiltro() }}
+  >
     Todos ({lotes.length})
   </button>
 
-  <button type="button" on:click={() => { filtro = 'a-expirar'; aplicarFiltro(); }}>
+  <button
+    class:active={filtro === 'a-expirar'}
+    on:click={() => { filtro = 'a-expirar'; aplicarFiltro() }}
+  >
     A expirar ({contar('a-expirar')})
   </button>
 
-  <button type="button" on:click={() => { filtro = 'expirados'; aplicarFiltro(); }}>
+  <button
+    class:active={filtro === 'expirados'}
+    on:click={() => { filtro = 'expirados'; aplicarFiltro() }}
+  >
     Expirados ({contar('expirado')})
   </button>
 </section>
-
-<hr />
-
-<section>
-  <h2>Lista de Lotes</h2>
+  
+<!-- LISTA -->
+<section class="card">
+  <h2>Lista de lotes</h2>
 
   {#if loading}
-    <p>A carregar lotes…</p>
+    <p class="loading">A carregar lotes…</p>
 
   {:else if lotesFiltrados.length === 0}
-    <p>Nenhum lote para este filtro.</p>
+    <p class="empty">
+      Nenhum lote para este filtro.
+    </p>
+
 
   {:else}
-    <ul>
+    <ul class="lista">
       {#each lotesFiltrados as lote}
-        <li>
-          <strong>{lote.produtos.nome}</strong> —
-          Quantidade: {lote.quantidade} —
-          Validade: {lote.validade} —
-          {#if estadoValidade(lote.validade) === 'expirado'}
-            <strong style="color: red">
-              EXPIRADO ({diasPara(lote.validade)} dias)
-            </strong>
-          {:else if estadoValidade(lote.validade) === 'a-expirar'}
-            <strong style="color: orange">
-              A expirar ({diasPara(lote.validade)} dias)
-            </strong>
-          {:else}
-            <span style="color: green">
-              OK ({diasPara(lote.validade)} dias)
+        <li class={estadoValidade(lote.validade)}>
+          <div class="info">
+            <strong>{lote.produtos.nome}</strong>
+            <span>
+              Quantidade: {lote.quantidade}
             </span>
-          {/if}
+            <span>
+              Validade: {lote.validade}
+            </span>
+          </div>
+
+          <span class="badge">
+            {#if estadoValidade(lote.validade) === 'expirado'}
+              🔴 Expirado ({diasPara(lote.validade)} dias)
+            {:else if estadoValidade(lote.validade) === 'a-expirar'}
+              🟠 A expirar ({diasPara(lote.validade)} dias)
+            {:else}
+              🟢 OK ({diasPara(lote.validade)} dias)
+            {/if}
+          </span>
         </li>
       {/each}
     </ul>
   {/if}
 </section>
+
+<style>
+  .page-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .subtitle {
+    color: #666;
+    margin-top: 0.25rem;
+  }
+
+  .card {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .form {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .filters {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .filters button.active {
+    font-weight: bold;
+  }
+
+  .lista {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .lista li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #eee;
+  }
+
+  .lista li:last-child {
+    border-bottom: none;
+  }
+
+  .badge {
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+
+  .expirado .badge {
+    color: #c62828;
+  }
+
+  .a-expirar .badge {
+    color: #ef6c00;
+  }
+
+  .ok .badge {
+    color: #2e7d32;
+  }
+
+  .feedback {
+    margin-bottom: 1rem;
+  }
+
+  .success {
+    color: #2e7d32;
+  }
+
+  .error {
+    color: #c62828;
+  }
+
+  .loading,
+  .empty {
+    opacity: 0.6;
+  }
+</style>

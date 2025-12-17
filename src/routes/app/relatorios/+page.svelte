@@ -1,127 +1,167 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { supabase } from '$lib/supabaseClient';
+  import { supabase } from '$lib/supabaseClient'
 
-  let lotes: any[] = [];
-  let loading = true;
-  let error = '';
+  function downloadCSV(nome: string, header: string[], rows: any[][]) {
+    const csv =
+      [header, ...rows]
+        .map((r) => r.map((v) => `"${v ?? ''}"`).join(';'))
+        .join('\n')
 
-  function diasPara(validade: string) {
-    const hoje = new Date();
-    const v = new Date(validade);
-    return Math.ceil((v.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+
+    const link = document.createElement('a')
+    link.href = url
+    link.download = nome
+    link.click()
+
+    URL.revokeObjectURL(url)
   }
 
-  function estado(validade: string) {
-    const d = diasPara(validade);
-    if (d < 0) return 'EXPIRADO';
-    if (d <= 30) return 'A EXPIRAR';
-    return 'OK';
+  /* =========================
+     PRODUTOS
+     ========================= */
+  async function exportarProdutos() {
+    const { data } = await supabase
+      .from('produtos')
+      .select('nome, descricao, ativo, created_at')
+
+    if (!data) return
+
+    downloadCSV(
+      'produtos.csv',
+      ['Nome', 'Descrição', 'Ativo', 'Criado em'],
+      data.map((p) => [
+        p.nome,
+        p.descricao,
+        p.ativo ? 'Sim' : 'Não',
+        new Date(p.created_at).toLocaleString()
+      ])
+    )
   }
 
-  async function carregarRelatorio() {
-    const { data, error: err } = await supabase
+  /* =========================
+     LOTES
+     ========================= */
+  async function exportarLotes() {
+    const { data } = await supabase
       .from('lotes')
       .select(`
-        id,
         quantidade,
         validade,
-        produtos (
-          nome
+        created_at,
+        produtos ( nome )
+      `)
+
+    if (!data) return
+
+    downloadCSV(
+      'lotes.csv',
+      ['Produto', 'Quantidade', 'Validade', 'Criado em'],
+      data.map((l) => [
+        l.produtos.nome,
+        l.quantidade,
+        l.validade,
+        new Date(l.created_at).toLocaleString()
+      ])
+    )
+  }
+
+  /* =========================
+     MOVIMENTOS
+     ========================= */
+  async function exportarMovimentos() {
+    const { data } = await supabase
+      .from('movimentos')
+      .select(`
+        tipo,
+        quantidade,
+        created_at,
+        lotes (
+          validade,
+          produtos ( nome )
         )
       `)
-      .order('validade', { ascending: true });
+      .order('created_at', { ascending: false })
 
-    if (err) error = err.message;
-    else lotes = data ?? [];
+    if (!data) return
 
-    loading = false;
+    downloadCSV(
+      'movimentos.csv',
+      ['Produto', 'Validade', 'Tipo', 'Quantidade', 'Data'],
+      data.map((m) => [
+        m.lotes.produtos.nome,
+        m.lotes.validade,
+        m.tipo,
+        m.quantidade,
+        new Date(m.created_at).toLocaleString()
+      ])
+    )
   }
 
-  function exportarCSV() {
-    const headers = [
-      'Produto',
-      'Quantidade',
-      'Validade',
-      'Estado'
-    ];
+  /* =========================
+     ALERTAS
+     ========================= */
+  async function exportarAlertas() {
+    const { data } = await supabase
+      .from('lotes')
+      .select(`
+        quantidade,
+        validade,
+        produtos ( nome )
+      `)
 
-    const linhas = lotes.map((l) => [
-      l.produtos.nome,
-      l.quantidade,
-      l.validade,
-      estado(l.validade)
-    ]);
+    if (!data) return
 
-    const csv =
-      [headers, ...linhas]
-        .map((row) => row.join(';'))
-        .join('\n');
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+    const alertas = data.filter((l) => {
+      const [a, m, d] = l.validade.split('-').map(Number)
+      const v = new Date(a, m - 1, d)
+      v.setHours(0, 0, 0, 0)
+      const diff = (v.getTime() - hoje.getTime()) / 86400000
+      return diff < 0 || diff <= 30
+    })
 
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'relatorio_lotes.csv';
-    a.click();
-
-    URL.revokeObjectURL(url);
+    downloadCSV(
+      'alertas.csv',
+      ['Produto', 'Quantidade', 'Validade'],
+      alertas.map((a) => [
+        a.produtos.nome,
+        a.quantidade,
+        a.validade
+      ])
+    )
   }
-
-  onMount(async () => {
-    await carregarRelatorio();
-  });
 </script>
 
-<h1>Relatórios</h1>
+<header class="page-header">
+  <h1>Relatórios</h1>
+  <p class="subtitle">
+    Exportação de dados em CSV
+  </p>
+</header>
 
-<p>
-  Relatório atual de lotes, quantidades e validade.
-</p>
+<section class="card">
+  <button on:click={exportarProdutos}>📦 Exportar Produtos</button>
+  <button on:click={exportarLotes}>🧾 Exportar Lotes</button>
+  <button on:click={exportarMovimentos}>🔄 Exportar Movimentos</button>
+  <button on:click={exportarAlertas}>🚨 Exportar Alertas</button>
+</section>
 
-<button type="button" on:click={exportarCSV} disabled={loading || lotes.length === 0}>
-  Exportar CSV
-</button>
+<style>
+  .page-header {
+    margin-bottom: 1.5rem;
+  }
 
-<hr />
+  .subtitle {
+    color: #666;
+  }
 
-{#if loading}
-  <p>A carregar relatório…</p>
-
-{:else if error}
-  <p style="color: red">{error}</p>
-
-{:else if lotes.length === 0}
-  <p>Nenhum dado disponível.</p>
-
-{:else}
-  <table border="1" cellpadding="6">
-    <thead>
-      <tr>
-        <th>Produto</th>
-        <th>Quantidade</th>
-        <th>Validade</th>
-        <th>Estado</th>
-      </tr>
-    </thead>
-    <tbody>
-      {#each lotes as l}
-        <tr>
-          <td>{l.produtos.nome}</td>
-          <td>{l.quantidade}</td>
-          <td>{l.validade}</td>
-          <td>
-            {#if estado(l.validade) === 'EXPIRADO'}
-              <strong style="color: red">EXPIRADO</strong>
-            {:else if estado(l.validade) === 'A EXPIRAR'}
-              <strong style="color: orange">A EXPIRAR</strong>
-            {:else}
-              <span style="color: green">OK</span>
-            {/if}
-          </td>
-        </tr>
-      {/each}
-    </tbody>
-  </table>
-{/if}
+  .card button {
+    display: block;
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+</style>

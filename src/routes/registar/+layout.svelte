@@ -6,17 +6,24 @@
   let password = ''
   let loading = false
   let error = ''
+  let success = ''
 
-  async function loginEmail() {
+  async function registar() {
     if (!email || !password) {
       error = 'Preenche email e password.'
       return
     }
 
+    if (password.length < 6) {
+      error = 'A password deve ter pelo menos 6 caracteres.'
+      return
+    }
+
     loading = true
     error = ''
+    success = ''
 
-    const { error: err } = await supabase.auth.signInWithPassword({
+    const { error: err } = await supabase.auth.signUp({
       email,
       password
     })
@@ -28,32 +35,14 @@
       return
     }
 
-    goto('/app/dashboard')
-  }
-
-  async function loginGithub() {
-    loading = true
-    error = ''
-
-    const { error: err } = await supabase.auth.signInWithOAuth({
-      provider: 'github',
-      options: {
-        redirectTo: `${window.location.origin}/app/dashboard`
-      }
-    })
-
-    loading = false
-
-    if (err) {
-      error = err.message
-    }
+    success = 'Conta criada. Verifica o teu email para confirmar.'
   }
 </script>
 
 <div class="login-page">
   <div class="card">
-    <h1>Entrar</h1>
-    <p class="subtitle">Acede à tua conta</p>
+    <h1>Criar conta</h1>
+    <p class="subtitle">Regista-te para começar</p>
 
     <input
       type="email"
@@ -64,29 +53,25 @@
 
     <input
       type="password"
-      placeholder="Password"
+      placeholder="Password (mín. 6 caracteres)"
       bind:value={password}
       disabled={loading}
     />
 
-    <button on:click={loginEmail} disabled={loading}>
-      {loading ? 'A entrar…' : 'Entrar'}
-    </button>
-
-    <div class="divider">ou</div>
-
-    <button class="github" on:click={loginGithub} disabled={loading}>
-      Entrar com GitHub
+    <button on:click={registar} disabled={loading}>
+      {loading ? 'A criar conta…' : 'Criar conta'}
     </button>
 
     {#if error}
       <p class="error">{error}</p>
     {/if}
 
-    <!-- SUBSTITUIÇÃO CORRETA -->
+    {#if success}
+      <p class="success">{success}</p>
+    {/if}
+
     <div class="links">
-      <a href="/registar">Criar conta</a>
-      <a href="/recuperar-password">Esqueci a password</a>
+      <a href="/login">Já tenho conta</a>
     </div>
   </div>
 </div>
@@ -135,25 +120,18 @@
     color: white;
   }
 
-  button.github {
-    background: #24292f;
-  }
-
-  .divider {
-    text-align: center;
-    font-size: 0.8rem;
-    color: #888;
-    margin: 0.5rem 0;
-  }
-
   .error {
     color: #c62828;
     font-size: 0.9rem;
   }
 
+  .success {
+    color: #2e7d32;
+    font-size: 0.9rem;
+  }
+
   .links {
-    display: flex;
-    justify-content: space-between;
+    text-align: center;
     font-size: 0.85rem;
     margin-top: 0.5rem;
   }

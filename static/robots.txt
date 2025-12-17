@@ -1,3 +1,9 @@
 # allow crawling everything by default
 User-agent: *
 Disallow:
+PUBLIC_SUPABASE_URL=https://hrgojhyfjmfsvaqjehep.supabase.co
+PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhyZ29qaHlmam1mc3ZhcWplaGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5MjUyNTAsImV4cCI6MjA4MTUwMTI1MH0.ZCzC7gBZKdneZePB4ohqY5oodafD06y_L9AljnCF-ro
+
+SupaClientID>Ov23liAh9ixgk8evqcMQ
+
+gitClientSecr>63a43dfb649a1b53e59330a91305648682521aeb

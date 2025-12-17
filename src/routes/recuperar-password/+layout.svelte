@@ -1,24 +1,23 @@
 <script lang="ts">
   import { supabase } from '$lib/supabaseClient'
-  import { goto } from '$app/navigation'
 
   let email = ''
-  let password = ''
   let loading = false
   let error = ''
+  let success = ''
 
-  async function loginEmail() {
-    if (!email || !password) {
-      error = 'Preenche email e password.'
+  async function recuperar() {
+    if (!email) {
+      error = 'Indica o teu email.'
       return
     }
 
     loading = true
     error = ''
+    success = ''
 
-    const { error: err } = await supabase.auth.signInWithPassword({
-      email,
-      password
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login`
     })
 
     loading = false
@@ -28,32 +27,14 @@
       return
     }
 
-    goto('/app/dashboard')
-  }
-
-  async function loginGithub() {
-    loading = true
-    error = ''
-
-    const { error: err } = await supabase.auth.signInWithOAuth({
-      provider: 'github',
-      options: {
-        redirectTo: `${window.location.origin}/app/dashboard`
-      }
-    })
-
-    loading = false
-
-    if (err) {
-      error = err.message
-    }
+    success = 'Email enviado. Verifica a tua caixa de correio.'
   }
 </script>
 
 <div class="login-page">
   <div class="card">
-    <h1>Entrar</h1>
-    <p class="subtitle">Acede à tua conta</p>
+    <h1>Recuperar password</h1>
+    <p class="subtitle">Vamos enviar-te um email para redefinir</p>
 
     <input
       type="email"
@@ -62,31 +43,20 @@
       disabled={loading}
     />
 
-    <input
-      type="password"
-      placeholder="Password"
-      bind:value={password}
-      disabled={loading}
-    />
-
-    <button on:click={loginEmail} disabled={loading}>
-      {loading ? 'A entrar…' : 'Entrar'}
-    </button>
-
-    <div class="divider">ou</div>
-
-    <button class="github" on:click={loginGithub} disabled={loading}>
-      Entrar com GitHub
+    <button on:click={recuperar} disabled={loading}>
+      {loading ? 'A enviar…' : 'Enviar email'}
     </button>
 
     {#if error}
       <p class="error">{error}</p>
     {/if}
 
-    <!-- SUBSTITUIÇÃO CORRETA -->
+    {#if success}
+      <p class="success">{success}</p>
+    {/if}
+
     <div class="links">
-      <a href="/registar">Criar conta</a>
-      <a href="/recuperar-password">Esqueci a password</a>
+      <a href="/login">Voltar ao login</a>
     </div>
   </div>
 </div>
@@ -135,25 +105,18 @@
     color: white;
   }
 
-  button.github {
-    background: #24292f;
-  }
-
-  .divider {
-    text-align: center;
-    font-size: 0.8rem;
-    color: #888;
-    margin: 0.5rem 0;
-  }
-
   .error {
     color: #c62828;
     font-size: 0.9rem;
   }
 
+  .success {
+    color: #2e7d32;
+    font-size: 0.9rem;
+  }
+
   .links {
-    display: flex;
-    justify-content: space-between;
+    text-align: center;
     font-size: 0.85rem;
     margin-top: 0.5rem;
   }

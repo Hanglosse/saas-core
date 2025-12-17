@@ -1,110 +1,111 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { supabase } from '$lib/supabaseClient';
+  import { onMount } from 'svelte'
+  import { supabase } from '$lib/supabaseClient'
 
-  let loading = true;
-  let error = '';
+  let loading = true
+  let error = ''
 
-  let totalProdutos = 0;
-  let totalLotes = 0;
-  let stockTotal = 0;
-  let expirados = 0;
-  let aExpirar = 0;
+  let totalProdutos = 0
+  let totalLotes = 0
+  let stockTotal = 0
+  let expirados = 0
+  let aExpirar = 0
 
   function diasPara(validade: string) {
-    const hoje = new Date();
-    const v = new Date(validade);
-    return Math.ceil((v.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+    const hoje = new Date()
+    const v = new Date(validade)
+    return Math.ceil((v.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
   }
 
   async function carregarDashboard() {
-    // Produtos ativos
+    loading = true
+    error = ''
+
     const { count: produtosCount, error: errProdutos } = await supabase
       .from('produtos')
       .select('*', { count: 'exact', head: true })
-      .eq('ativo', true);
+      .eq('ativo', true)
 
     if (errProdutos) {
-      error = errProdutos.message;
-      return;
+      error = errProdutos.message
+      loading = false
+      return
     }
 
-    totalProdutos = produtosCount ?? 0;
+    totalProdutos = produtosCount ?? 0
 
-    // Lotes
     const { data: lotes, error: errLotes } = await supabase
       .from('lotes')
-      .select('quantidade, validade');
+      .select('quantidade, validade')
 
     if (errLotes) {
-      error = errLotes.message;
-      return;
+      error = errLotes.message
+      loading = false
+      return
     }
 
-    totalLotes = lotes?.length ?? 0;
-    stockTotal = 0;
-    expirados = 0;
-    aExpirar = 0;
+    totalLotes = lotes?.length ?? 0
+    stockTotal = 0
+    expirados = 0
+    aExpirar = 0
 
     for (const lote of lotes ?? []) {
-      stockTotal += lote.quantidade;
+      stockTotal += lote.quantidade
 
-      const d = diasPara(lote.validade);
-      if (d < 0) expirados++;
-      else if (d <= 30) aExpirar++;
+      const d = diasPara(lote.validade)
+      if (d < 0) expirados++
+      else if (d <= 30) aExpirar++
     }
 
-    loading = false;
+    loading = false
   }
 
-  onMount(async () => {
-    await carregarDashboard();
-  });
+  onMount(carregarDashboard)
 </script>
 
-<h1>Dashboard</h1>
+<header class="page-header">
+  <h1>Dashboard</h1>
+  <p class="subtitle">Visão geral do stock e validade</p>
+</header>
 
 {#if loading}
-  <p>A carregar dados…</p>
+  <p class="loading">A carregar dados…</p>
 
 {:else if error}
   <p class="error">{error}</p>
 
 {:else}
-  <section
-    style="
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-    "
-  >
-    <div>
-      <h3>Produtos ativos</h3>
-      <p><strong>{totalProdutos}</strong></p>
+
+  <!-- KPIs -->
+  <section class="kpis">
+    <div class="kpi">
+      <span>Produtos ativos</span>
+      <strong>{totalProdutos}</strong>
     </div>
 
-    <div>
-      <h3>Lotes</h3>
-      <p><strong>{totalLotes}</strong></p>
+    <div class="kpi">
+      <span>Lotes</span>
+      <strong>{totalLotes}</strong>
     </div>
 
-    <div>
-      <h3>Stock total</h3>
-      <p><strong>{stockTotal}</strong></p>
+    <div class="kpi">
+      <span>Stock total</span>
+      <strong>{stockTotal}</strong>
     </div>
 
-    <div>
-      <h3 style="color: red">Expirados</h3>
-      <p><strong>{expirados}</strong></p>
+    <div class="kpi danger">
+      <span>Expirados</span>
+      <strong>{expirados}</strong>
     </div>
 
-    <div>
-      <h3 style="color: orange">A expirar</h3>
-      <p><strong>{aExpirar}</strong></p>
+    <div class="kpi warning">
+      <span>A expirar</span>
+      <strong>{aExpirar}</strong>
     </div>
   </section>
 
-  <section>
+  <!-- ESTADO GLOBAL -->
+  <section class="status">
     {#if expirados > 0}
       <p class="error">
         🔴 Existem <strong>{expirados}</strong> lotes expirados.
@@ -112,7 +113,7 @@
       </p>
 
     {:else if aExpirar > 0}
-      <p style="color: orange">
+      <p class="warning">
         🟠 Existem <strong>{aExpirar}</strong> lotes a expirar em breve.
         <a href="/app/alertas">Ver alertas</a>
       </p>
@@ -123,4 +124,67 @@
       </p>
     {/if}
   </section>
+
 {/if}
+
+<style>
+  .page-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .subtitle {
+    color: #666;
+    margin-top: 0.25rem;
+  }
+
+  .loading {
+    opacity: 0.6;
+  }
+
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .kpi {
+    padding: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+  }
+
+  .kpi span {
+    display: block;
+    color: #666;
+    font-size: 0.85rem;
+  }
+
+  .kpi strong {
+    font-size: 1.6rem;
+  }
+
+  .kpi.warning {
+    border-color: #f0c36d;
+  }
+
+  .kpi.danger {
+    border-color: #e57373;
+  }
+
+  .status p {
+    margin-top: 0.5rem;
+  }
+
+  .error {
+    color: #c62828;
+  }
+
+  .warning {
+    color: #ef6c00;
+  }
+
+  .success {
+    color: #2e7d32;
+  }
+</style>
